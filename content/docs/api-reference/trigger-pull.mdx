@@ -29,6 +29,14 @@ curl -X POST http://localhost:3001/trigger-pull \
   -d '{ "subscription_id": "b2a9e4c1-...", "merchant_secret": "S..." }'
 ```
 
+## Transaction confirmation
+
+After submission, the endpoint waits for the transaction to settle. It calls Soroban RPC's `getTransaction(txHash)` immediately, then polls while the status is `NOT_FOUND`. By default, it waits `1000` ms between polls and uses a `30000` ms (30-second) polling window. Configure these with `TX_POLL_INTERVAL_MS` and `TX_POLL_TIMEOUT_MS`; see [API configuration](/api-reference/overview#base-url).
+
+A `SUCCESS` result returns `200` and advances `next_billing_date`. A `FAILED` result returns `502` and marks the subscription `past_due`, leaving `next_billing_date` unchanged. If the result is still `NOT_FOUND` when the polling window expires, the endpoint returns `202` with the transaction hash and leaves the subscription unchanged.
+
+The polling window starts after submission. It is not a strict timeout for the entire HTTP request: preparation, submission, RPC calls and the final polling delay can add to the request duration.
+
 ## Response `200`
 
 ```json
@@ -37,6 +45,19 @@ curl -X POST http://localhost:3001/trigger-pull \
   "txHash": "6f4a8b...19e0"
 }
 ```
+
+## Response `202`
+
+The transaction was submitted, but its outcome is still unknown:
+
+```json
+{
+  "message": "Transaction submitted but not yet confirmed; check back later",
+  "txHash": "6f4a8b...19e0"
+}
+```
+
+A polling timeout does not cancel the on-chain transaction. The handler stops polling after returning this response; it does not later update `next_billing_date` automatically. Poll `getTransaction(txHash)` before marking the cycle as paid or retrying the pull.
 
 ## Errors
 

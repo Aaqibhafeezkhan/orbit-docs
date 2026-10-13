@@ -16,12 +16,18 @@ npm install
 node index.js            # http://localhost:3001
 ```
 
-| Variable | Purpose |
-|---|---|
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Database (schema in `apps/backend/schema.sql`) |
-| `ORBIT_CONTRACT_ID` | Contract to invoke |
-| `SOROBAN_RPC_URL` | Soroban RPC endpoint |
-| `STELLAR_NETWORK_PASSPHRASE` | Network the transactions are signed for |
+| Variable | Default | Purpose |
+|---|---|---|
+| `SUPABASE_URL` | None | Supabase project URL (schema in `apps/backend/schema.sql`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | None | Supabase service-role key |
+| `ORBIT_CONTRACT_ID` | None | Contract to invoke; required for `/trigger-pull` |
+| `SOROBAN_RPC_URL` | `https://soroban-testnet.stellar.org` | Soroban RPC endpoint |
+| `STELLAR_NETWORK_PASSPHRASE` | `Test SDF Network ; September 2015` (`Networks.TESTNET`) | Network the transactions are signed for |
+| `PORT` | `3001` | Port the Express server listens on |
+| `TX_POLL_TIMEOUT_MS` | `30000` | Transaction confirmation polling window in milliseconds for `/trigger-pull` |
+| `TX_POLL_INTERVAL_MS` | `1000` | Delay in milliseconds between transaction confirmation polls |
+
+See [transaction confirmation](/api-reference/trigger-pull#transaction-confirmation) for polling outcomes and the timeout response.
 
 ## Conventions
 
