@@ -78,11 +78,24 @@ ledgers per cycle ~ 2592000 / 5 = 518400
 
 ## Cancelling
 
-Subscribers cancel **on the token**, not on Orbit:
+Subscribers have two ways to cancel a subscription, operating at different levels:
 
-```bash
-stellar contract invoke --id $TOKEN --source subscriber --network testnet -- \
-  approve --from $SUBSCRIBER --spender $ORBIT --amount 0 --live_until_ledger 0
-```
+1. **Revoke the token allowance (on the token):**
+   Setting the allowance to `0` stops transfers immediately. The vault remains stored in Orbit, but any attempt by the merchant to call `pull_funds` fails inside the SAC.
 
-After this, every `pull_funds` for that subscriber fails inside the SAC, whatever vault terms are stored.
+   ```bash
+   stellar contract invoke --id $TOKEN --source subscriber --network testnet -- \
+     approve --from $SUBSCRIBER --spender $ORBIT --amount 0 --live_until_ledger 0
+   ```
+
+2. **Delete the vault (on Orbit):**
+   Calling `cancel_vault` removes the `(user, merchant)` record from Orbit's persistent storage and emits a `vault_cancelled` event. Any subsequent `pull_funds` call fails with `"Vault does not exist"`. However, this leaves the token allowance in place.
+
+   ```bash
+   stellar contract invoke --id $ORBIT --source subscriber --network testnet -- \
+     cancel_vault --user $SUBSCRIBER --merchant $MERCHANT
+   ```
+
+<Tip>
+  **Recommended:** Do both for a clean exit. Call `cancel_vault` to remove the vault agreement on Orbit, and revoke the allowance (set amount to `0`) on the token so Orbit can no longer draw funds.
+</Tip>
