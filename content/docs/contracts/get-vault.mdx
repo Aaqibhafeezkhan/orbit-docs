@@ -58,20 +58,66 @@ Compare that with the ledger timestamp, not your server clock.
 
 ## Example
 
-Because the call is read-only, the CLI simulates it and prints the result without submitting a transaction.
+Because this call is read-only, the CLI simulates it and prints the result without submitting a transaction.
 
-```bash
-stellar contract invoke --id $ORBIT --source subscriber --network testnet -- \
-  get_vault --user $SUBSCRIBER --merchant $MERCHANT
-```
+<Tabs>
+  <Tab title="CLI">
 
-```json
-{
-  "token": "CDLZ...CYSC",
-  "amount_per_interval": "290000000",
-  "interval_seconds": 2592000,
-  "last_pull_timestamp": 0
-}
-```
+    ```bash
+    stellar contract invoke --id $ORBIT --source subscriber --network testnet -- \
+      get_vault --user $SUBSCRIBER --merchant $MERCHANT
+    ```
 
-A pair with no vault prints `null`.
+    ```json
+    {
+      "token": "CDLZ...CYSC",
+      "amount_per_interval": "290000000",
+      "interval_seconds": 2592000,
+      "last_pull_timestamp": 0
+    }
+    ```
+
+    A pair with no vault prints `null`.
+
+  </Tab>
+  <Tab title="TypeScript">
+
+    Install `@stellar/stellar-sdk`. This read-only example simulates the contract call and decodes the returned value; it does not sign or submit a transaction.
+
+    ```ts
+    import { rpc, Contract, TransactionBuilder, Address, scValToNative } from "@stellar/stellar-sdk";
+
+    const ORBIT = "CAZBZBUWBSQYK2RZ6WHMXVDLIQHSU5WD7ANZYL6HLNSCRUOTNYCDYQNG";
+    const RPC_URL = "https://soroban-testnet.stellar.org";
+    const NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
+    const server = new rpc.Server(RPC_URL);
+
+    export async function getVault(subscriber: string, merchant: string) {
+      const account = await server.getAccount(subscriber);
+      const transaction = new TransactionBuilder(account, {
+        fee: "100000",
+        networkPassphrase: NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(ORBIT).call(
+            "get_vault",
+            new Address(subscriber).toScVal(),
+            new Address(merchant).toScVal(),
+          ),
+        )
+        .setTimeout(60)
+        .build();
+
+      const simulation = await server.simulateTransaction(transaction);
+      if (rpc.Api.isSimulationError(simulation)) {
+        throw new Error(simulation.error);
+      }
+
+      return scValToNative(simulation.result.retval);
+    }
+    ```
+
+    `get_vault` is marked preview in these docs because it is not yet available on the published testnet deployment. The example becomes callable after that contract is redeployed.
+
+  </Tab>
+</Tabs>

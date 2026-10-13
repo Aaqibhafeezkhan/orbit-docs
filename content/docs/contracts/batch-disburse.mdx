@@ -41,8 +41,77 @@ for split in splits.into_iter() {
 
 ## Example
 
-```bash
-stellar contract invoke --id $ORBIT --source treasury --network testnet -- \
-  batch_disburse --sender $TREASURY --token $TOKEN \
-  --splits '[{"recipient":"'$A'","amount":"100000000"},{"recipient":"'$B'","amount":"50000000"}]'
-```
+<Tabs>
+  <Tab title="CLI">
+
+    ```bash
+    stellar contract invoke --id $ORBIT --source treasury --network testnet -- \
+      batch_disburse --sender $TREASURY --token $TOKEN \
+      --splits '[{"recipient":"'$A'","amount":"100000000"},{"recipient":"'$B'","amount":"50000000"}]'
+    ```
+
+  </Tab>
+  <Tab title="TypeScript">
+
+    This example runs on a trusted server using the treasury keypair. Store `TREASURY_SECRET` securely and never ship it to a browser. Install `@stellar/stellar-sdk`.
+
+    ```ts
+    import { rpc, Contract, TransactionBuilder, Address, Keypair, xdr, nativeToScVal } from "@stellar/stellar-sdk";
+
+    const ORBIT = "CAZBZBUWBSQYK2RZ6WHMXVDLIQHSU5WD7ANZYL6HLNSCRUOTNYCDYQNG";
+    const RPC_URL = "https://soroban-testnet.stellar.org";
+    const NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
+    const server = new rpc.Server(RPC_URL);
+
+    function paymentSplit(recipient: string, amount: bigint) {
+      return xdr.ScVal.scvMap([
+        new xdr.ScMapEntry({
+          key: xdr.ScVal.scvSymbol("recipient"),
+          val: new Address(recipient).toScVal(),
+        }),
+        new xdr.ScMapEntry({
+          key: xdr.ScVal.scvSymbol("amount"),
+          val: nativeToScVal(amount, { type: "i128" }),
+        }),
+      ]);
+    }
+
+    export async function batchDisburse(token: string, recipientA: string, recipientB: string) {
+      const treasury = Keypair.fromSecret(process.env.TREASURY_SECRET!);
+      const sender = treasury.publicKey();
+      const splits = xdr.ScVal.scvVec([
+        paymentSplit(recipientA, 100000000n),
+        paymentSplit(recipientB, 50000000n),
+      ]);
+      const account = await server.getAccount(sender);
+      const transaction = new TransactionBuilder(account, {
+        fee: "100000",
+        networkPassphrase: NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(ORBIT).call(
+            "batch_disburse",
+            new Address(sender).toScVal(),
+            new Address(token).toScVal(),
+            splits,
+          ),
+        )
+        .setTimeout(60)
+        .build();
+
+      const simulation = await server.simulateTransaction(transaction);
+      if (rpc.Api.isSimulationError(simulation)) {
+        throw new Error(simulation.error);
+      }
+
+      const prepared = await server.prepareTransaction(transaction);
+      prepared.sign(treasury);
+      const submitted = await server.sendTransaction(prepared);
+      return server.pollTransaction(submitted.hash);
+    }
+    ```
+
+    The two splits use raw units: `100000000` is 10 USDC and `50000000` is 5 USDC. Simulate before signing; the contract executes the transfers atomically.
+
+  </Tab>
+</Tabs>
