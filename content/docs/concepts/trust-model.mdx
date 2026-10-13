@@ -33,6 +33,8 @@ Orbit is designed so that the trust each party needs is small and written down.
 
 ## Guarantees
 
+[`create_vault`](/contracts/create-vault) requires `amount_per_interval > 0` and `interval_seconds > 0`. Both checks run before storage is written, so invalid billing terms leave any existing vault unchanged.
+
 <Columns cols={2}>
   <Card title="Non-custodial" icon="wallet">
     Orbit is only the spender. The contract never holds a token balance.
@@ -54,7 +56,6 @@ Orbit is designed so that the trust each party needs is small and written down.
   The contract is an MVP and has not been audited.
 </Warning>
 
-- `create_vault` does not reject zero values. `interval_seconds = 0` lets the merchant pull at any time, still capped by the allowance.
 - Re-running `create_vault` resets the cadence, so the merchant can pull again immediately. Clients should warn the subscriber before they re-subscribe.
 - [Events](/contracts/events) are only published on success. A failed pull leaves no Orbit event, so track failures from the transaction result.
 - Errors are string panics, not typed error codes. See [Contract errors](/contracts/errors).
