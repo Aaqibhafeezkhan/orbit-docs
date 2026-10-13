@@ -27,11 +27,47 @@ pub fn batch_disburse(env: Env, sender: Address, token: Address, splits: Vec<Pay
 
 ```rust
 sender.require_auth();
-let token = token::Client::new(&env, &token);
-for split in splits.into_iter() {
-    token.transfer_from(&orbit, &sender, &split.recipient, &split.amount);
+
+assert!(!splits.is_empty(), "splits must not be empty");
+
+for split in splits.iter() {
+    assert!(split.amount > 0, "split amount must be positive");
 }
+
+let token_client = token::Client::new(&env, &token);
+let recipient_count = splits.len();
+let mut total_amount: i128 = 0;
+
+for split in splits.into_iter() {
+    total_amount = total_amount
+        .checked_add(split.amount)
+        .expect("Total amount overflow");
+
+    token_client.transfer_from(
+        &env.current_contract_address(),
+        &sender,
+        &split.recipient,
+        &split.amount,
+    );
+}
+
+env.events().publish(
+    (Symbol::new(&env, "batch_disbursed"), sender),
+    (token, recipient_count, total_amount),
+);
 ```
+
+## Validation
+
+Input validation runs before any transfer is executed. Every split amount is checked upfront, so an invalid split anywhere in the list causes the entire transaction to revert before any tokens move:
+
+| Message | Cause | Fix |
+|---|---|---|
+| `splits must not be empty` | `splits` has no entries | Provide at least one recipient and amount |
+| `split amount must be positive` | Any split has `amount <= 0` | Pass an amount greater than zero, in raw token units |
+| `Total amount overflow` | The sum of split amounts overflows `i128` | Keep the total batch payout within `i128::MAX` |
+
+See [contract errors](/contracts/errors) for the full list of errors and simulation instructions.
 
 ## Properties
 
