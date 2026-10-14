@@ -14,6 +14,7 @@ Each state-changing entrypoint publishes one event when it succeeds. The first t
 | `vault_created` | [`create_vault`](/contracts/create-vault) | `(vault_created, user, merchant)` | `(token, amount_per_interval, interval_seconds)` |
 | `funds_pulled` | [`pull_funds`](/contracts/pull-funds) | `(funds_pulled, user, merchant)` | `(amount_per_interval, timestamp)` |
 | `batch_disbursed` | [`batch_disburse`](/contracts/batch-disburse) | `(batch_disbursed, sender)` | `(token, recipient_count, total_amount)` |
+| `vault_cancelled` | `cancel_vault` | `(vault_cancelled, user, merchant)` | `()` |
 
 ## Fields
 
@@ -48,6 +49,15 @@ It is published every time `create_vault` succeeds, including when it overwrites
 | data 2 | `total_amount` | `i128` | Sum of all split amounts, in raw units |
 
 One event covers the whole batch. For the amount each recipient received, read the token's `transfer` events in the same transaction.
+
+### `vault_cancelled`
+
+| Position | Field | Type | Meaning |
+|---|---|---|---|
+| topic 1 | `user` | `Address` | Subscriber who signed the cancellation |
+| topic 2 | `merchant` | `Address` | Merchant whose pull permissions were revoked |
+
+The data payload is empty (`()`). It is published when `cancel_vault` successfully deletes the stored vault.
 
 ## Only on success
 
