@@ -59,7 +59,58 @@ If anything fails, all of it reverts and `last_pull_timestamp` stays the same.
 
 ## Example
 
-```bash
-stellar contract invoke --id $ORBIT --source merchant --network testnet -- \
-  pull_funds --user $SUBSCRIBER --merchant $MERCHANT
-```
+<Tabs>
+  <Tab title="CLI">
+
+    ```bash
+    stellar contract invoke --id $ORBIT --source merchant --network testnet -- \
+      pull_funds --user $SUBSCRIBER --merchant $MERCHANT
+    ```
+
+  </Tab>
+  <Tab title="TypeScript">
+
+    This is a server-side keeper/merchant operation. Keep the merchant secret in a server-side environment variable; never expose it in browser code. Install `@stellar/stellar-sdk`.
+
+    ```ts
+    import { rpc, Contract, TransactionBuilder, Address, Keypair } from "@stellar/stellar-sdk";
+
+    const ORBIT = "CAZBZBUWBSQYK2RZ6WHMXVDLIQHSU5WD7ANZYL6HLNSCRUOTNYCDYQNG";
+    const RPC_URL = "https://soroban-testnet.stellar.org";
+    const NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
+    const server = new rpc.Server(RPC_URL);
+
+    export async function pullFunds(subscriber: string) {
+      const keeper = Keypair.fromSecret(process.env.KEEPER_SECRET!);
+      const merchant = keeper.publicKey();
+      const account = await server.getAccount(merchant);
+      const transaction = new TransactionBuilder(account, {
+        fee: "100000",
+        networkPassphrase: NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(ORBIT).call(
+            "pull_funds",
+            new Address(subscriber).toScVal(),
+            new Address(merchant).toScVal(),
+          ),
+        )
+        .setTimeout(60)
+        .build();
+
+      const simulation = await server.simulateTransaction(transaction);
+      if (rpc.Api.isSimulationError(simulation)) {
+        throw new Error(simulation.error);
+      }
+
+      const prepared = await server.prepareTransaction(transaction);
+      prepared.sign(keeper);
+      const submitted = await server.sendTransaction(prepared);
+      return server.pollTransaction(submitted.hash);
+    }
+    ```
+
+    The keeper keypair signs only after simulation and transaction preparation. The contract still enforces the vault interval, allowance, balance, and merchant authorization.
+
+  </Tab>
+</Tabs>

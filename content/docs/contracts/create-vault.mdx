@@ -60,13 +60,66 @@ See [contract errors](/contracts/errors) for the full list and how to catch them
 
 ## Example
 
-```bash
-stellar contract invoke --id $ORBIT --source subscriber --network testnet -- \
-  create_vault \
-  --user $SUBSCRIBER --merchant $MERCHANT --token $TOKEN \
-  --amount_per_interval 290000000 --interval_seconds 2592000
-```
+<Tabs>
+  <Tab title="CLI">
 
-<Warning>
-  Calling this again for an existing pair resets `last_pull_timestamp` to `0`, which lets the merchant pull again immediately.
-</Warning>
+    ```bash
+    stellar contract invoke --id $ORBIT --source subscriber --network testnet -- \
+      create_vault \
+      --user $SUBSCRIBER --merchant $MERCHANT --token $TOKEN \
+      --amount_per_interval 290000000 --interval_seconds 2592000
+    ```
+
+  </Tab>
+  <Tab title="TypeScript">
+
+    Install the SDK and Freighter browser API with `npm install @stellar/stellar-sdk @stellar/freighter-api`. Connect Freighter to Testnet before running this subscriber-side example.
+
+    ```ts
+    import { rpc, Contract, TransactionBuilder, Address, nativeToScVal } from "@stellar/stellar-sdk";
+    import { getAddress, signTransaction } from "@stellar/freighter-api";
+
+    const ORBIT = "CAZBZBUWBSQYK2RZ6WHMXVDLIQHSU5WD7ANZYL6HLNSCRUOTNYCDYQNG";
+    const RPC_URL = "https://soroban-testnet.stellar.org";
+    const NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
+    const server = new rpc.Server(RPC_URL);
+
+    export async function createVault(merchant: string, token: string) {
+      const { address: subscriber } = await getAddress();
+      const account = await server.getAccount(subscriber);
+      const transaction = new TransactionBuilder(account, {
+        fee: "100000",
+        networkPassphrase: NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(ORBIT).call(
+            "create_vault",
+            new Address(subscriber).toScVal(),
+            new Address(merchant).toScVal(),
+            new Address(token).toScVal(),
+            nativeToScVal(290000000n, { type: "i128" }),
+            nativeToScVal(2592000n, { type: "u64" }),
+          ),
+        )
+        .setTimeout(60)
+        .build();
+
+      const simulation = await server.simulateTransaction(transaction);
+      if (rpc.Api.isSimulationError(simulation)) {
+        throw new Error(simulation.error);
+      }
+
+      const prepared = await server.prepareTransaction(transaction);
+      const { signedTxXdr } = await signTransaction(prepared.toXDR(), {
+        networkPassphrase: NETWORK_PASSPHRASE,
+      });
+      const signed = TransactionBuilder.fromXDR(signedTxXdr, NETWORK_PASSPHRASE);
+      const submitted = await server.sendTransaction(signed);
+      return server.pollTransaction(submitted.hash);
+    }
+    ```
+
+    `290000000` is 29 USDC in raw units, not a decimal amount. Simulation happens before Freighter is asked to sign.
+
+  </Tab>
+</Tabs>

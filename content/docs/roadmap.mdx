@@ -9,7 +9,8 @@ description: "What's shipped and what's next."
 - Atomic batch payroll (`batch_disburse`)
 - Read-only vault lookup (`get_vault`)
 - Input validation on `create_vault` and `batch_disburse`
-- Contract events (`vault_created`, `funds_pulled`, `batch_disbursed`)
+- Contract events (`vault_created`, `funds_pulled`, `batch_disbursed`, `vault_cancelled`)
+- Vault cancellation by the subscriber (`cancel_vault`)
 - TTL extension on vault entries
 - Testnet deployment
 - Merchant API (plans, subscriptions, trigger pull)
@@ -20,7 +21,7 @@ description: "What's shipped and what's next."
 
 <Steps>
   <Step title="Contract hardening">
-    Typed `contracterror` codes, a `cancel_vault` entrypoint, and a testnet redeploy so `get_vault`, events and TTL extension are live on the public contract.
+    Typed `contracterror` codes and a testnet redeploy so `get_vault`, `cancel_vault`, events and TTL extension are live on the public contract.
   </Step>
   <Step title="Real signing everywhere">
     Hosted checkout, widget and dashboard submit real transactions through Freighter. The keeper signs with a KMS-held key instead of a secret in the request body.

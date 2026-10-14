@@ -28,7 +28,7 @@ sum(i=1..N) splits[i].amount <= allowance(sender, orbit)
   </Step>
 
   <Step title="Upload and validate">
-    **Dashboard → Batch Payroll → Upload CSV**. The rows are parsed into a recipient list you can review and edit.
+    **Dashboard → Batch Payroll → Upload CSV**. The rows are parsed into a recipient list you can review and edit. The contract verifies that `splits` is not empty, each amount is strictly positive (`> 0`), and the total does not overflow `i128`. All validation runs before any transfer is made.
   </Step>
 
   <Step title="Approve and disburse">
@@ -61,6 +61,13 @@ stellar contract invoke --id $ORBIT --source treasury --network testnet -- \
   </Accordion>
   <Accordion title="Can recipients be contracts?">
     Yes. Any `Address` works, both `G...` accounts and `C...` contracts.
+  </Accordion>
+  <Accordion title="What makes a batch valid?">
+    The contract validates the entire batch before moving any funds:
+    - `splits` must not be empty (`splits must not be empty`).
+    - Every split amount must be greater than zero (`split amount must be positive`).
+    - The sum of all amounts must not overflow `i128` (`Total amount overflow`).
+    If any check fails, the transaction reverts immediately and nobody is paid.
   </Accordion>
   <Accordion title="What if one recipient has no trustline?">
     For classic assets like USDC, a `G...` recipient needs a trustline. If one is missing, that transfer fails and the **whole batch reverts**. Check trustlines before you submit.
